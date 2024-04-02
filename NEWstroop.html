@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stroop Test Dr. Luna Lembo</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding: 0;
+    }
+    .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    h1 {
+        text-align: center;
+        font-size: 28px;
+        margin-bottom: 20px;
+    }
+    p {
+        font-size: 18px;
+        margin-bottom: 10px;
+    }
+    strong {
+        font-weight: bold;
+    }
+    button {
+        font-size: 18px;
+        padding: 10px 20px;
+    }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>Stroop Test Audio</h1>
+    <p>Misura del funzionamento esecutivo utilizzando stimoli uditivi</p>
+    <p><strong>RICORDA: premi "c" (o "C") se lo stimolo è coerente (voce maschile/nome maschile)</strong></p>
+    <p><strong>RICORDA: premi "i" (o "I") se lo stimolo è incoerente (voce maschile/nome femminile o viceversa)</strong></p>
+    
+    <!-- Introduzione di nome, cognome, età, titolo di studio e numero di domande -->
+    <div id="inputFields">
+        <label for="firstName">Nome:</label>
+        <input type="text" id="firstName" required><br>
+        <label for="lastName">Cognome:</label>
+        <input type="text" id="lastName" required><br>
+        <label for="age">Età:</label>
+        <input type="number" id="age" required><br>
+        <label for="education">Titolo di studio:</label>
+        <input type="text" id="education" required><br>
+        <label for="questionCount">Numero di domande (5, 10, 15, 20, 30, 40, 50, 100):</label>
+        <select id="questionCount">
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20">20</option>
+            <option value="30">30</option>
+            <option value="40">40</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select><br><br>
+        <button onclick="startInstructions()">Inizia il Test</button>
+    </div>
+</div>
+
+<script>
+var audioInstructions = ["instruction1.wav", "instruction2.wav"];
+var audioFiles = [];
+
+// Aggiungi tutti i file audio Congruente*.wav e Incongruente*.wav
+for (var i = 0; i < 10; i++) {
+    audioFiles.push("Congruente" + i + ".wav");
+    audioFiles.push("Incongruente" + i + ".wav");
+}
+
+var correctResponses = 0;
+var responseTimesCongruent = [];
+var responseTimesIncongruent = [];
+var testStarted = false;
+var firstName, lastName, age, questionCount;
+
+function playAudio(audioName, callback) {
+    try {
+        var audio = new Audio(audioName);
+        audio.onended = callback;
+        audio.play();
+    } catch (error) {
+        console.error("Errore durante la riproduzione dell'audio:", error);
+    }
+}
+
+function startInstructions() {
+    // Disabilita il pulsante "Inizia" dopo il clic per evitare ripetute pressioni
+    document.querySelector("button").disabled = true;
+    // Salva i dati inseriti dall'utente
+    firstName = document.getElementById("firstName").value;
+    lastName = document.getElementById("lastName").value;
+    age = document.getElementById("age").value;
+    questionCount = parseInt(document.getElementById("questionCount").value);
+    // Nascondi i campi di input
+    document.getElementById("inputFields").style.display = "none";
+    // Avvia la riproduzione di instruction1.wav
+    playAudio(audioInstructions[0], function() {
+        waitForEnterKey(function() {
+            // Attiva il pulsante "Inizia" dopo la fine di instruction1.wav
+            document.querySelector("button").disabled = false;
+            playAudio(audioInstructions[1], function() {
+                waitForEnterKey(startTest);
+            });
+        });
+    });
+}
+
+function waitForEnterKey(callback) {
+    var isFirstInput = true; // Flag to track the first input
+    document.addEventListener("keydown", function handleKeyPress(event) {
+        if (isFirstInput && event.key === "Enter") {
+            isFirstInput = false;
+            callback();
+        }
+    });
+}
+
+function startTest() {
+    testStarted = true;
+    playNextAudio();
+}
+
+function waitForResponse(audioType, startTime) {
+    var endTime;
+    document.addEventListener("keydown", function handleKeyPress(event) {
+        if (testStarted && (event.key.toUpperCase() === "C" || event.key.toUpperCase() === "I")) {
+            endTime = Date.now();
+            var responseTime = (endTime - startTime) / 1000; // convert to seconds
+            document.removeEventListener("keydown", handleKeyPress); // Remove event listener
+            if (audioType === "Congruente") {
+                responseTimesCongruent.push({time: responseTime, flag: (event.key.toUpperCase() === "C" ? "V" : "F")});
+            } else {
+                responseTimesIncongruent.push({time: responseTime, flag: (event.key.toUpperCase() === "I" ? "V" : "F")});
+            }
+            if ((audioType === "Congruente" && event.key.toUpperCase() === "C") || (audioType === "Incongruente" && event.key.toUpperCase() === "I")) {
+                correctResponses++;
+            }
+                    // Wait for 1 second before playing the next audio
+                    setTimeout(playNextAudio, 1000);
+           // playNextAudio(); // Play next audio immediately after response
+        }
+    });
+}
+
+function playNextAudio() {
+    if (audioFiles.length > 0 && (responseTimesCongruent.length + responseTimesIncongruent.length) < questionCount) {
+        var audioIndex = Math.floor(Math.random() * audioFiles.length);
+        var audioFileName = audioFiles.splice(audioIndex, 1)[0];
+        var audioType = audioFileName.split(".")[0].split(/[0-9]/)[0];
+        var startTime = Date.now();
+        waitForResponse(audioType, startTime); // Wait for response immediately after starting audio
+        playAudio(audioFileName); // Start playing audio immediately
+    } else
+    {
+        showResults();
+    }
+}
+
+function showResults() {
+    var totalResponses = responseTimesCongruent.length + responseTimesIncongruent.length;
+    var totalCongruentTime = responseTimesCongruent.reduce((acc, curr) => acc + curr.time, 0);
+    var totalIncongruentTime = responseTimesIncongruent.reduce((acc, curr) => acc + curr.time, 0);
+    var averageCongruentTime = totalCongruentTime / responseTimesCongruent.length;
+    var averageIncongruentTime = totalIncongruentTime / responseTimesIncongruent.length;
+    var differenceInTime = totalIncongruentTime - totalCongruentTime;
+
+    // Calcola l'Effetto Stroop usando solo i tempi con flag 'V'
+    var responseTimesIncongruentFlagV = responseTimesIncongruent.filter((time) => time.flag === 'V');
+    var responseTimesCongruentFlagV = responseTimesCongruent.filter((time) => time.flag === 'V');
+    var totalIncongruentTimeFlagV = responseTimesIncongruentFlagV.reduce((acc, curr) => acc + curr.time, 0);
+    var totalCongruentTimeFlagV = responseTimesCongruentFlagV.reduce((acc, curr) => acc + curr.time, 0);
+    var differenceInTimeFlagV = totalIncongruentTimeFlagV - totalCongruentTimeFlagV;
+
+    // Calcola la media dei tempi per gli stimoli incongruenti e congruenti
+    var averageIncongruentTimeFlagV = totalIncongruentTimeFlagV / responseTimesIncongruentFlagV.length;
+    var averageCongruentTimeFlagV = totalCongruentTimeFlagV / responseTimesCongruentFlagV.length;
+
+    var resultsMessage = "Nome: " + firstName + "<br>";
+    resultsMessage += "Cognome: " + lastName + "<br>";
+    resultsMessage += "Età: " + age + "<br>";
+    resultsMessage += "Numero di domande: " + questionCount + "<br>";
+    resultsMessage += "Hai completato " + totalResponses + " domande.<br>";
+    resultsMessage += "Percentuale di risposte corrette: " + (correctResponses / totalResponses * 100).toFixed(2) + "%<br>";
+    resultsMessage += "Tempi di risposta per gli stimoli congruenti:<br>";
+
+    for (var i = 0; i < responseTimesCongruent.length; i++) {
+        resultsMessage += "Stimolo congruente " + (i + 1) + ": " + (responseTimesCongruent[i].time).toFixed(2) + " secondi<br>";
+    }
+    resultsMessage += "Tempi di risposta per gli stimoli incongruenti:<br>";
+    for (var i = 0; i < responseTimesIncongruent.length; i++) {
+        resultsMessage += "Stimolo incongruente " + (i + 1) + ": " + (responseTimesIncongruent[i].time).toFixed(2) + " secondi<br>";
+    }
+    resultsMessage += "Differenza nei tempi (incongruenti - congruenti): " + (differenceInTime).toFixed(2) + " secondi<br>";
+    resultsMessage += "Differenza nei tempi (incongruenti con flag 'V' - congruenti con flag 'V'): " + (differenceInTimeFlagV).toFixed(2) + " secondi<br>";
+
+    resultsMessage += "Media dei tempi per gli stimoli incongruenti: " + (averageIncongruentTime).toFixed(2) + " secondi<br>";
+    resultsMessage += "Media dei tempi per gli stimoli congruenti: " + (averageCongruentTime).toFixed(2) + " secondi<br>";
+    resultsMessage += "Media dei tempi per i soli stimoli incongruenti con flag 'V': " + (averageIncongruentTimeFlagV).toFixed(2) + " secondi<br>";
+    resultsMessage += "Media dei tempi per i soli stimoli congruenti con flag 'V': " + (averageCongruentTimeFlagV).toFixed(2) + " secondi<br>";
+
+    // Aggiungi i risultati al documento
+    var resultsContainer = document.createElement('div');
+    resultsContainer.innerHTML = "<h2>Risultati:</h2><p>" + resultsMessage + "</p>";
+    document.body.appendChild(resultsContainer);
+
+      // Prepare the results string that will be saved to the .txt file
+      var resultsForFile = "Results:\n";
+    resultsForFile += "Name: " + firstName + "\n";
+    resultsForFile += "Surname: " + lastName + "\n";
+    resultsForFile += "Age: " + age + "\n";
+    resultsForFile += "Number of questions: " + questionCount + "\n";
+    resultsForFile += "You have completed " + totalResponses + " questions.\n";
+    resultsForFile += "Percentage of correct answers: " + (correctResponses / totalResponses * 100).toFixed(2) + "%\n";
+    resultsForFile += "Response times for congruent stimuli:\n";
+
+    responseTimesCongruent.forEach(function(time, i) {
+        resultsForFile += "Congruent stimulus " + (i + 1) + ": " + time.time.toFixed(2) + " seconds\n";
+    });
+    resultsForFile += "Response times for incongruent stimuli:\n";
+    responseTimesIncongruent.forEach(function(time, i) {
+        resultsForFile += "Incongruent stimulus " + (i + 1) + ": " + time.time.toFixed(2) + " seconds\n";
+    });
+
+    // Additional statistics for the .txt file
+    resultsForFile += "Difference in times (incongruent - congruent): " + differenceInTime.toFixed(2) + " seconds\n";
+    resultsForFile += "Difference in times (incongruent with flag 'V' - congruent with flag 'V'): " + differenceInTimeFlagV.toFixed(2) + " seconds\n";
+    resultsForFile += "Average time for incongruent stimuli: " + averageIncongruentTime.toFixed(2) + " seconds\n";
+    resultsForFile += "Average time for congruent stimuli: " + averageCongruentTime.toFixed(2) + " seconds\n";
+    resultsForFile += "Average time for incongruent stimuli with flag 'V': " + averageIncongruentTimeFlagV.toFixed(2) + " seconds\n";
+    resultsForFile += "Average time for congruent stimuli with flag 'V': " + averageCongruentTimeFlagV.toFixed(2) + " seconds\n";
+
+    // Create a button to download the results
+    var downloadButton = document.createElement("button");
+    downloadButton.innerText = "Download Results";
+    downloadButton.onclick = function() {
+        // Create a Blob with the results
+        var blob = new Blob([resultsForFile], {type: "text/plain"});
+        var url = URL.createObjectURL(blob);
+
+        // Create a temporary link to trigger the download
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "test_results.txt";
+        document.body.appendChild(a); // Required for Firefox
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    // Append the download button to the document
+    document.body.appendChild(downloadButton);
+}
+
+
+
+</script>
+
+</body>
+</html>
